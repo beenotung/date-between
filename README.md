@@ -1,8 +1,8 @@
-# Date Calculator
+# Date Between Calculator
 
-A standalone date calculator with no ads.
+A standalone date counting calculator with no ads.
 
-Hosted at https://date-calculator.surge.sh
+Hosted at https://date-between.surge.sh
 
 ## Features
 
