@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Date Calculator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+    .card { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    h2 { margin-top: 0; font-size: 1.1rem; color: #333; }
+    label { display: block; margin: 0.5rem 0; }
+    label.radio { display: inline; margin: 0 1rem 0 0; }
+    input, select { padding: 0.4rem; font-size: 1rem; }
+    input[type="number"] { width: 80px; }
+    button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; margin-right: 0.5rem; margin-top: 0.5rem; }
+    .result { background: #e8f5e9; padding: 1rem; border-radius: 4px; margin-top: 1rem; font-size: 1.1rem; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .tab { padding: 0.5rem 1rem; border: 1px solid #ccc; border-radius: 4px 4px 0 0; cursor: pointer; background: #f5f5f5; }
+    .tab.active { background: #fff; border-bottom: none; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .duration-inputs { display: flex; gap: 0.5rem; align-items: flex-wrap; }
+    .duration-inputs input { width: 70px; }
+    .duration-inputs span { white-space: nowrap; }
+    textarea { width: 100%; padding: 0.4rem; font-size: 0.9rem; font-family: monospace; }
+    details { margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Date Calculator</h1>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="between">Count Date</button>
+    <button class="tab" data-tab="add">Add/Subtract Date</button>
+    <button class="tab" data-tab="weeknum">Week #</button>
+  </div>
+
+  <div id="between" class="tab-content active">
+    <div class="card">
+      <h2>Count Date (Days Between Two Dates)</h2>
+      <label>Start Date: <input type="date" id="btw-start"></label>
+      <label>End Date: <input type="date" id="btw-end"></label>
+      <label><input type="checkbox" id="btw-include" checked> Include end date</label>
+      <button onclick="calcBetween()">Calculate</button>
+      <div id="btw-result" class="result" style="display:none"></div>
+    </div>
+  </div>
+
+  <div id="add" class="tab-content">
+    <div class="card">
+      <h2>Add/Subtract Date</h2>
+      <label>Start Date: <input type="date" id="add-start"></label>
+      <div style="margin-bottom:0.5rem">
+        <label class="radio"><input type="radio" name="add-sub" value="add" checked> Add</label>
+        <label class="radio"><input type="radio" name="add-sub" value="subtract"> Subtract</label>
+      </div>
+      <div class="duration-inputs" style="margin-top:0.5rem">
+        <input type="number" id="add-days" placeholder="Days" min="0">
+        <input type="number" id="add-weeks" placeholder="Weeks" min="0">
+        <input type="number" id="add-months" placeholder="Months" min="0">
+        <input type="number" id="add-years" placeholder="Years" min="0">
+      </div>
+      <div style="margin-top:0.5rem;margin-bottom:0.5rem">
+        <label class="radio"><input type="radio" name="add-mode" value="calendar" checked> Calendar day</label>
+        <label class="radio"><input type="radio" name="add-mode" value="workday"> Work day</label>
+      </div>
+      <button onclick="calcAdd()">Calculate</button>
+      <div id="add-result" class="result" style="display:none"></div>
+    </div>
+  </div>
+
+  <div id="weeknum" class="tab-content">
+    <div class="card">
+      <h2>Week Number</h2>
+      <label>Date: <input type="date" id="wn-date"></label>
+      <button onclick="calcWeeknum()">Calculate</button>
+      <div id="wn-result" class="result" style="display:none"></div>
+    </div>
+  </div>
+
+  <details>
+    <summary style="cursor:pointer;font-size:0.9rem;color:#555">Holidays (optional, for workday calculations)</summary>
+    <div class="card" style="margin-top:0.5rem">
+      <label>One date per line. Format: <code>YYYY-MM-DD</code> for full day, <code>YYYY-MM-DD h</code> for half day.</label>
+      <textarea id="holidays" rows="4" placeholder="2025-01-01&#10;2025-12-25 h"></textarea>
+    </div>
+  </details>
+
+  <script>
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    function dateStr(d) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    function formatDate(d) {
+      return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function daysBetween(start, end, includeEnd) {
+      const ms = end - start;
+      let days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      if (includeEnd) days++;
+      return days;
+    }
+
+    function parseHolidays() {
+      const text = document.getElementById('holidays').value;
+      const full = new Set();
+      const half = new Set();
+      for (const line of text.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (trimmed.endsWith(' h')) {
+          half.add(trimmed.slice(0, -2).trim());
+        } else if (trimmed.endsWith(' f')) {
+          full.add(trimmed.slice(0, -2).trim());
+        } else {
+          full.add(trimmed);
+        }
+      }
+      return { full, half };
+    }
+
+    function countWorkdays(start, end, include, holidays) {
+      let count = 0;
+      const current = new Date(start);
+      while (current <= end) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) {
+          const s = dateStr(current);
+          if (holidays.full.has(s)) {
+            // skip
+          } else if (holidays.half.has(s)) {
+            count += 0.5;
+          } else {
+            count++;
+          }
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      if (!include && start < end) {
+        const lastDay = new Date(end);
+        const day = lastDay.getDay();
+        const s = dateStr(lastDay);
+        if (day !== 0 && day !== 6) {
+          if (holidays.full.has(s)) {
+            // already not counted
+          } else if (holidays.half.has(s)) {
+            count -= 0.5;
+          } else {
+            count--;
+          }
+        }
+      }
+      return count;
+    }
+
+    function addWorkdays(startDate, count, holidays) {
+      const result = new Date(startDate);
+      const direction = count >= 0 ? 1 : -1;
+      let remaining = Math.abs(count);
+      while (remaining > 0) {
+        result.setDate(result.getDate() + direction);
+        const day = result.getDay();
+        const s = dateStr(result);
+        if (day === 0 || day === 6 || holidays.full.has(s)) continue;
+        remaining--;
+      }
+      return result;
+    }
+
+    function calcBetween() {
+      let start = new Date(document.getElementById('btw-start').value);
+      let end = new Date(document.getElementById('btw-end').value);
+      if (!start || !end) { alert('Please select both dates'); return; }
+      if (start > end) { [start, end] = [end, start]; }
+      const include = document.getElementById('btw-include').checked;
+      const holidays = parseHolidays();
+      const totalDays = daysBetween(start, end, include);
+      const workdays = countWorkdays(start, end, include, holidays);
+      const nonWorkdays = totalDays - workdays;
+      const el = document.getElementById('btw-result');
+      el.style.display = 'block';
+      el.innerHTML = `<strong>${totalDays}</strong> calendar day${totalDays !== 1 ? 's' : ''}: <strong>${workdays}</strong> working, <strong>${nonWorkdays}</strong> non-working`;
+    }
+
+    function calcAdd() {
+      const start = new Date(document.getElementById('add-start').value);
+      if (!start) { alert('Please select a date'); return; }
+      const isWorkday = document.querySelector('input[name="add-mode"]:checked').value === 'workday';
+      const sign = document.querySelector('input[name="add-sub"]:checked').value === 'subtract' ? -1 : 1;
+      let result;
+      if (isWorkday) {
+        const days = (parseInt(document.getElementById('add-days').value) || 0) * sign;
+        const weeks = (parseInt(document.getElementById('add-weeks').value) || 0) * sign;
+        const count = days + weeks * 7;
+        const holidays = parseHolidays();
+        result = addWorkdays(start, count, holidays);
+      } else {
+        const days = (parseInt(document.getElementById('add-days').value) || 0) * sign;
+        const weeks = (parseInt(document.getElementById('add-weeks').value) || 0) * sign;
+        const months = (parseInt(document.getElementById('add-months').value) || 0) * sign;
+        const years = (parseInt(document.getElementById('add-years').value) || 0) * sign;
+        result = new Date(start);
+        result.setDate(result.getDate() + days + weeks * 7);
+        result.setMonth(result.getMonth() + months);
+        result.setFullYear(result.getFullYear() + years);
+      }
+      const diffDays = Math.round(Math.abs(result - start) / 86400000);
+      const el = document.getElementById('add-result');
+      el.style.display = 'block';
+      if (diffDays > 0) {
+        const holidays = parseHolidays();
+        const earlier = start <= result ? start : result;
+        const later = result > start ? result : start;
+        const workdays = countWorkdays(earlier, later, true, holidays);
+        const nonWorkdays = diffDays - workdays;
+        el.innerHTML = `<strong>${formatDate(result)}</strong><br><strong>${diffDays}</strong> calendar day${diffDays !== 1 ? 's' : ''}: <strong>${workdays}</strong> working, <strong>${nonWorkdays}</strong> non-working`;
+      } else {
+        el.innerHTML = `<strong>${formatDate(result)}</strong>`;
+      }
+    }
+
+    function calcWeeknum() {
+      const date = new Date(document.getElementById('wn-date').value);
+      if (!date) { alert('Please select a date'); return; }
+      const firstDay = new Date(date.getFullYear(), 0, 1);
+      const pastDaysOfYear = (date - firstDay) / (1000 * 60 * 60 * 24);
+      const weekNum = Math.ceil((pastDaysOfYear + firstDay.getDay() + 1) / 7);
+      const el = document.getElementById('wn-result');
+      el.style.display = 'block';
+      el.innerHTML = `<strong>Week ${weekNum}</strong> of ${date.getFullYear()}`;
+    }
+  </script>
+</body>
+</html>
